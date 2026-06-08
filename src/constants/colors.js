@@ -1,0 +1,16 @@
+export const COLORS = {
+  verde:          '#1a5c38',
+  verdeClaro:     '#d4edda',
+  azul:           '#0c447c',
+  azulClaro:      '#d0e8f8',
+  rojo:           '#a32d2d',
+  rojoClaro:      '#f7c1c1',
+  amarillo:       '#854f0b',
+  amarilloClaro:  '#fff3cd',
+  blanco:         '#ffffff',
+  fondo:          '#f4f6f4',
+  gris:           '#6b7280',
+  grisBorde:      '#e5e7eb',
+  texto:          '#111827',
+  textoSuave:     '#6b7280',
+};
