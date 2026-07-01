@@ -1,142 +1,131 @@
 import React, { createContext, useContext, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
-// ─── Base de datos en memoria ────────────────────────────────────────────────
-// Cuidadores registrados
-const CUIDADORES_BD = {
-  'c1': { id: 'c1', nombre: 'Juan', rut: '12.345.678-5', pass: '1234' },
-};
-
-// Pacientes iniciales de demo
-const PACIENTES_INICIALES = {
-  '1': {
-    id: '1',
-    cuidadorId: 'c1',
-    nombre: 'Rosa Martínez',
-    rut: '11.111.111-1',
-    pin: '1234',
-    edad: 72,
-    tipoSangre: 'A+',
-    alergias: 'Penicilina',
-    cesfam: 'CESFAM Puerto Montt',
-    iniciales: 'RM',
-    color: '#d4edda',
-    colorTexto: '#1a5c38',
-    contactos: [
-      { id: 'ct1', nombre: 'María Martínez (hija)', telefono: '+56 9 1234 5678' },
-    ],
-    medicamentos: [
-      { id: 'm1', nombre: 'Losartán 50mg',    hora: '8:00 AM', frecuencia: 'Diario', tomado: true  },
-      { id: 'm2', nombre: 'Metformina 500mg', hora: '9:00 AM', frecuencia: 'Diario', tomado: false },
-    ],
-    estado: 'pendiente',
-  },
-  '2': {
-    id: '2',
-    cuidadorId: 'c1',
-    nombre: 'Pedro González',
-    rut: '22.222.222-2',
-    pin: '5678',
-    edad: 68,
-    tipoSangre: 'O+',
-    alergias: 'Ninguna',
-    cesfam: 'CESFAM Puerto Montt',
-    iniciales: 'PG',
-    color: '#d0e8f8',
-    colorTexto: '#0c447c',
-    contactos: [],
-    medicamentos: [
-      { id: 'm3', nombre: 'Atorvastatina 20mg', hora: '8:00 PM', frecuencia: 'Diario', tomado: true },
-    ],
-    estado: 'ok',
-  },
-};
-
 export function AuthProvider({ children }) {
-  const [usuario, setUsuario]     = useState(null);
-  const [pacientes, setPacientes] = useState(PACIENTES_INICIALES);
-  // Alertas de cambios hechos por el adulto mayor
+  const [usuario, setUsuario]         = useState(null);
   const [alertasCambio, setAlertasCambio] = useState([]);
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  function loginCuidador(datos) { setUsuario({ rol: 'cuidador', ...datos }); }
-  function logout()             { setUsuario(null); }
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  async function loginCuidador(rut, password) {
+    const { data, error } = await supabase
+      .from('cuidadores')
+      .select('*')
+      .eq('rut', rut)
+      .eq('password', password)
+      .single();
 
-  // Login adulto: recibe rut + pin, busca en pacientes
-  function loginAdulto(rut, pin) {
-    const paciente = Object.values(pacientes).find(
-      p => p.rut === rut && p.pin === pin
-    );
-    if (paciente) {
-      setUsuario({ rol: 'adulto', pacienteId: paciente.id, nombre: paciente.nombre });
-      return true;
-    }
-    return false;
+    if (error || !data) return false;
+    setUsuario({ rol: 'cuidador', ...data });
+    return true;
   }
+
+  async function loginAdulto(rut, pin) {
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select('*')
+      .eq('rut', rut)
+      .eq('pin', pin)
+      .single();
+
+    if (error || !data) return false;
+    setUsuario({ rol: 'adulto', pacienteId: data.id, nombre: data.nombre });
+    return true;
+  }
+
+  function logout() { setUsuario(null); }
 
   // ── Pacientes ─────────────────────────────────────────────────────────────
-  function getPacientesDeCuidador(cuidadorId) {
-    return Object.values(pacientes).filter(p => p.cuidadorId === cuidadorId);
+  async function getPacientesDeCuidador(cuidadorId) {
+    const { data } = await supabase
+      .from('pacientes')
+      .select('*, medicamentos(*), contactos(*)')
+      .eq('cuidador_id', cuidadorId);
+    return data || [];
   }
 
-  function getPaciente(id) {
-    return pacientes[id] || null;
+  async function getPaciente(id) {
+    const { data } = await supabase
+      .from('pacientes')
+      .select('*, medicamentos(*), contactos(*)')
+      .eq('id', id)
+      .single();
+    return data;
   }
 
-  function agregarPaciente(datos, cuidadorId) {
-    const id = Date.now().toString();
-    const iniciales = datos.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const colores = [
-      { color:'#d4edda', colorTexto:'#1a5c38' },
-      { color:'#d0e8f8', colorTexto:'#0c447c' },
-      { color:'#fff3cd', colorTexto:'#854f0b' },
-    ];
-    const c = colores[Object.keys(pacientes).length % colores.length];
-    const nuevo = {
-      id,
-      cuidadorId,
-      ...datos,
-      iniciales,
-      ...c,
-      medicamentos: datos.medicamentos || [],
-      contactos:    datos.contactos    || [],
-      estado: 'ok',
-    };
-    setPacientes(prev => ({ ...prev, [id]: nuevo }));
-    return id;
+  async function agregarPaciente(datos, cuidadorId) {
+    // Insertar paciente
+    const { data: paciente, error } = await supabase
+      .from('pacientes')
+      .insert({
+        cuidador_id: cuidadorId,
+        nombre:      datos.nombre,
+        rut:         datos.rut,
+        pin:         datos.pin,
+        edad:        datos.edad,
+        tipo_sangre: datos.tipoSangre,
+        alergias:    datos.alergias,
+        cesfam:      datos.cesfam,
+      })
+      .select()
+      .single();
+
+    if (error || !paciente) return null;
+
+    // Insertar medicamentos
+    if (datos.medicamentos?.length > 0) {
+      await supabase.from('medicamentos').insert(
+        datos.medicamentos.map(m => ({ paciente_id: paciente.id, ...m }))
+      );
+    }
+
+    // Insertar contactos
+    if (datos.contactos?.length > 0) {
+      await supabase.from('contactos').insert(
+        datos.contactos.map(c => ({ paciente_id: paciente.id, ...c }))
+      );
+    }
+
+    return paciente.id;
   }
 
-  function actualizarPaciente(id, cambios, porAdulto = false) {
-    setPacientes(prev => {
-      const actual = prev[id];
-      const actualizado = { ...actual, ...cambios };
-      if (porAdulto) {
-        // generar alerta para el cuidador
-        setAlertasCambio(a => [...a, {
-          id: Date.now().toString(),
-          pacienteId: id,
-          pacienteNombre: actual.nombre,
-          mensaje: `${actual.nombre} editó su perfil`,
-          hora: new Date().toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' }),
-          leida: false,
-        }]);
-      }
-      return { ...prev, [id]: actualizado };
-    });
+  async function actualizarPaciente(id, cambios, porAdulto = false) {
+    await supabase.from('pacientes').update(cambios).eq('id', id);
+
+    if (porAdulto) {
+      const paciente = await getPaciente(id);
+      await supabase.from('alertas').insert({
+        cuidador_id:    paciente.cuidador_id,
+        paciente_id:    id,
+        mensaje:        `${paciente.nombre} editó su perfil`,
+        leida:          false,
+      });
+    }
   }
 
-  function marcarAlertaLeida(alertaId) {
-    setAlertasCambio(a => a.map(x => x.id === alertaId ? { ...x, leida: true } : x));
+  async function cargarAlertas(cuidadorId) {
+    const { data } = await supabase
+      .from('alertas')
+      .select('*')
+      .eq('cuidador_id', cuidadorId)
+      .eq('leida', false)
+      .order('created_at', { ascending: false });
+    setAlertasCambio(data || []);
+  }
+
+  async function marcarAlertaLeida(alertaId) {
+    await supabase.from('alertas').update({ leida: true }).eq('id', alertaId);
+    setAlertasCambio(a => a.filter(x => x.id !== alertaId));
   }
 
   return (
     <AuthContext.Provider value={{
       usuario,
       loginCuidador, loginAdulto, logout,
-      pacientes, getPacientesDeCuidador, getPaciente,
+      getPacientesDeCuidador, getPaciente,
       agregarPaciente, actualizarPaciente,
-      alertasCambio, marcarAlertaLeida,
+      alertasCambio, cargarAlertas, marcarAlertaLeida,
     }}>
       {children}
     </AuthContext.Provider>

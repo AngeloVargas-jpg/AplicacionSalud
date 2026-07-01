@@ -21,7 +21,7 @@ export default function RegistrarSalud() {
         <Text style={s.exitoTitulo}>¡Registro guardado!</Text>
         <Text style={s.exitoSub}>Tu presión de hoy quedó anotada</Text>
         <View style={s.resumen}>
-          {[['Número de arriba', String(arriba)], ['Número de abajo', String(abajo)], ['Cómo me siento', feel || 'Sin indicar']].map(([k,v]) => (
+          {[['Presión alta', String(arriba)], ['Presión baja', String(abajo)], ['Cómo me siento', feel || 'Sin indicar']].map(([k,v]) => (
             <View key={k} style={s.filaResumen}>
               <Text style={s.filaLabel}>{k}</Text>
               <Text style={s.filaValor}>{v}</Text>
@@ -42,14 +42,21 @@ export default function RegistrarSalud() {
         <Text style={s.sub}>Mira los números del tensiómetro</Text>
       </View>
       <ScrollView contentContainerStyle={s.body}>
-        {[['arriba', arriba, 'El número de arriba', 'El más grande (ej. 120)'], ['abajo', abajo, 'El número de abajo', 'El más pequeño (ej. 80)']].map(([campo, val, lbl, sub]) => (
+        {[
+          ['arriba', arriba, 'Presión alta',  'El número más grande (ej. 120)'],
+          ['abajo',  abajo,  'Presión baja',  'El número más pequeño (ej. 80)'],
+        ].map(([campo, val, lbl, sub]) => (
           <View key={campo} style={s.card}>
             <Text style={s.label}>{lbl}</Text>
             <Text style={s.labelSub}>{sub}</Text>
             <View style={s.contador}>
-              <TouchableOpacity style={s.btnNum} onPress={() => cambiar(campo, -1)}><Text style={s.btnNumTexto}>−</Text></TouchableOpacity>
+              <TouchableOpacity style={s.btnNum} onPress={() => cambiar(campo, -1)}>
+                <Text style={s.btnNumTexto}>−</Text>
+              </TouchableOpacity>
               <Text style={s.numGrande}>{val}</Text>
-              <TouchableOpacity style={s.btnNum} onPress={() => cambiar(campo, 1)}><Text style={s.btnNumTexto}>+</Text></TouchableOpacity>
+              <TouchableOpacity style={s.btnNum} onPress={() => cambiar(campo, 1)}>
+                <Text style={s.btnNumTexto}>+</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ))}
